@@ -217,7 +217,7 @@ const showChart = (bindto, columns) => {
     regions: [
       {
         axis: "x",
-        start: new Date(new Day().toString()),
+        end: new Date(new Day().prevDay().toString()),
         class: "regionX"
       }
     ]
@@ -257,7 +257,7 @@ const showBarChart = (bindto, columns) => {
     regions: [
       {
         axis: "x",
-        start: new Date(new Day().toString()),
+        end: new Date(new Day().prevDay().toString()),
         class: "regionX"
       }
     ]
