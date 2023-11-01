@@ -4,7 +4,7 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 </head><body>
 <h1>あわら温泉エリア 宿泊予約状況（データ出典：福井県観光連盟）</h1>
-基準日：<input type="date" id=beginDate />
+期間：<input type="date" id=fromDate />～<input type="date" id=toDate />
 
 <ul class="nav nav-tabs" id="chartTab" role="tablist">
   <li class="nav-item" role="presentation">
@@ -35,8 +35,9 @@ import { Day } from "https://js.sabae.cc/DateTime.js";
 import { initC3 } from "https://code4fukui.github.io/c3-es/c3-es.js";
 const c3 = initC3(window);
 
-beginDate.setAttribute("value", new Day().toString());
-// beginDate.setAttribute("max", new Day().prevDay().toString());
+fromDate.setAttribute("value", new Day().toString());
+toDate.setAttribute("value", new Day().dayAfter(89).toString());
+
 const hotelData = CSV.toJSON(await CSV.fetch("./latest_hotel.csv"));
 totalHotelCount.textContent = hotelData.length;
 totalRoomCount.textContent = hotelData.reduce((sum, h) => {
@@ -88,11 +89,9 @@ const getBarChartFile = async (targetDate) => {
   return CSV.toJSON(csv);
 };
 
-const makeChartColumns = (data, startday, colnames) => {
+const makeChartColumns = (data, startday, endday, colnames) => {
   const dates = [];
-  //const startday = new Day();
-  const endday = startday.dayAfter(90);
-  for (let d = startday; !d.equals(endday); d = d.dayAfter(1)) {
+  for (let d = startday; d.includes(startday, endday); d = d.dayAfter(1)) {
     dates.push(d.toStringYMD());
   }
   dates.unshift("x");
@@ -101,8 +100,8 @@ const makeChartColumns = (data, startday, colnames) => {
   cols.push(dates);
 
   const targetData = data.filter(d => {
-    const targetDate = new Day(d.利用開始日).nextDay();
-    return startday.isBefore(targetDate) && endday.isAfter(targetDate)
+    const targetDate = new Day(d.利用開始日);
+    return targetDate.includes(startday, endday);
   });
   for (let j = 0; j < colnames.length; j++) {
     const colname = colnames[j];
@@ -128,14 +127,12 @@ const makeChartColumns = (data, startday, colnames) => {
 
     cols[3][i] = (parseInt(cols[3][i]) / parseInt(targetData[i - 1]["予約件数"])).toFixed(2);
   }
-
   return cols;
 };
 
-const makeBarChartColumns = (data, startday, colname) => {
+const makeBarChartColumns = (data, startday, endday, colname) => {
   const dates = [];
-  const endday = startday.dayAfter(90);
-  for (let d = startday; !d.equals(endday); d = d.dayAfter(1)) {
+  for (let d = startday; d.includes(startday, endday); d = d.dayAfter(1)) {
     dates.push(d.toStringYMD());
   }
   dates.unshift("x");
@@ -152,8 +149,8 @@ const makeBarChartColumns = (data, startday, colname) => {
   const totalList = Array(dates.length - 1);
   totalList.fill(0); 
   const targetData = data.filter(d => {
-    const targetDate = new Day(d.利用開始日).nextDay();
-    return startday.isBefore(targetDate) && endday.isAfter(targetDate)
+    const targetDate = new Day(d.利用開始日);
+    return targetDate.includes(startday, endday);
   });
   for (const d of targetData) {
     if (d.都道府県 == "不明") {
@@ -267,14 +264,15 @@ const showBarChart = (bindto, columns) => {
 const chartData = await getChartFile();
 const barChartData = await getBarChartFile();
 
-const show = async (targetDate) => {
-  if (!targetDate) {
+const show = async (startDate, endDate) => {
+  if (!startDate || !endDate) {
     return;
   }
 
   const colnames = ["利用総人数", "室数", "平均泊数", NAME_FEE];  
-  const startday = new Day(targetDate);
-  const columns = makeChartColumns(chartData, startday, colnames);
+  const startday = new Day(startDate);
+  const endday = new Day(endDate);
+  const columns = makeChartColumns(chartData, startday, endday,  colnames);
   
   const occ = [NAME_OCC];
   const adr = [NAME_ADR];
@@ -311,22 +309,25 @@ const show = async (targetDate) => {
   span_date.textContent = new Day(columns[0][1]).toString();
 };
 
-const loadBarChart = (targetDate, category) => {
-  const startday = new Day(targetDate);
-  // TODO
-  // 項目によっては計算した値を作成する必要あり
-  const barColumns = makeBarChartColumns(barChartData, startday, category);
+const loadBarChart = (startDate, endDate, category) => {
+  const startday = new Day(startDate);
+  const endday = new Day(endDate);
+  const barColumns = makeBarChartColumns(barChartData, startday, endday, category);
   showBarChart("#barChart", barColumns);
 };
 
-beginDate.onchange = () => {
-  show(beginDate.value);
-  loadBarChart(beginDate.value, barChartCategory.value);
+fromDate.onchange = () => {
+  show(fromDate.value, toDate.value);
+  loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
 };
-barChartCategory.onchange = () => loadBarChart(beginDate.value, barChartCategory.value);
+toDate.onchange = () => {
+  show(fromDate.value, toDate.value);
+  loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
+};
+barChartCategory.onchange = () => loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
 
-show(beginDate.value);
-loadBarChart(beginDate.value, barChartCategory.value);
+show(fromDate.value, toDate.value);
+loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
 </script>
 
 <div class=caption>
