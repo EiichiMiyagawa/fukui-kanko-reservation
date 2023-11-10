@@ -153,7 +153,7 @@ const makeBarChartColumns = (data, startday, endday, colname) => {
     return targetDate.includes(startday, endday);
   });
   for (const d of targetData) {
-    if (d.都道府県 == "不明") {
+    if (!prefectures.includes(d.都道府県)) {
       continue;
     }
     
