@@ -13,5 +13,5 @@ const latestRsvSumData = await (await fetch(getLatestRsvSumApi)).json();
 await Deno.writeTextFile("data/" + new Day(TimeZone.JST).toString() + ".csv", CSV.stringify(latestRsvSumData));
 await Deno.writeTextFile("latest_rsv_sum.csv", CSV.stringify(latestRsvSumData));
 
-// const latestRsvPrefectureSumData = await (await fetch(getLatestRsvPrefectureSumApi)).json();
-// await Deno.writeTextFile("latest_rsv_prefecture_sum.csv", CSV.stringify(latestRsvPrefectureSumData));
+const latestRsvPrefectureSumData = await (await fetch(getLatestRsvPrefectureSumApi)).json();
+await Deno.writeTextFile("latest_rsv_prefecture_sum.csv", CSV.stringify(latestRsvPrefectureSumData));
