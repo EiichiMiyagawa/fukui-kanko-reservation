@@ -8,10 +8,13 @@
 
 <ul class="nav nav-tabs" id="chartTab" role="tablist">
   <li class="nav-item" role="presentation">
-    <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#chartContent" type="button" role="tab" aria-controls="chartContent" aria-selected="true">全合計</button>
+    <button class="nav-link active" id="chart-tab" data-bs-toggle="tab" data-bs-target="#chartContent" type="button" role="tab" aria-controls="chartContent" aria-selected="true">全合計</button>
   </li>
   <li class="nav-item" role="presentation">
-    <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#barChartContent" type="button" role="tab" aria-controls="barChartContent" aria-selected="false">都道府県別</button>
+    <button class="nav-link" id="bar-chart-tab" data-bs-toggle="tab" data-bs-target="#barChartContent" type="button" role="tab" aria-controls="barChartContent" aria-selected="false">都道府県別</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="booking-curve-tab" data-bs-toggle="tab" data-bs-target="#bookingCurveChartContent" type="button" role="tab" aria-controls="bookingCurveChartContent" aria-selected="false">ブッキングカーブ</button>
   </li>
 </ul>
 
@@ -26,6 +29,10 @@
       <option>利用合計</option>
     </select>
     <div id="barChart"></div>
+  </div>
+
+  <div id=bookingCurveChartContent class="tab-pane fade show">
+    <div id="bookingCurve"></div>
   </div>
 </div>
 
@@ -86,6 +93,12 @@ const getBarChartFile = async (targetDate) => {
   for (let i = 0; i < csv[0].length; i++) {
     csv[0][i] = map[csv[0][i]];
   }
+  return CSV.toJSON(csv);
+};
+
+const getBookingCurveFile = async (targetDate) => {
+  const url = "./booking_curve.csv";
+  const csv = await CSV.fetch(url);
   return CSV.toJSON(csv);
 };
 
@@ -176,6 +189,34 @@ const makeBarChartColumns = (data, startday, endday, colname) => {
   return cols;
 };
 
+const makeBookingCurveColumns = (data, startday, endday) => {
+  const xColumns = [];
+  for (let n = 0; n <= 90; n++) {
+    xColumns.push(n);
+  }
+  xColumns.unshift("x");
+
+  const columns = [];
+  columns.push(xColumns);
+
+  const targetData = data.filter(d => {
+    const targetDate = new Day(d.target_date);
+    return targetDate.includes(startday, endday);
+  });
+
+  for (const d of targetData) {
+    const yColumns = [];
+    for (let n = 0; n <= 90; n++) {
+      const y = parseInt(d["ago_" + n + "days"]);
+      yColumns.push(y);
+    }
+    yColumns.unshift(d.target_date);
+    columns.push(yColumns);
+  }
+
+  return columns;
+};
+
 const NAME_FEE = "利用合計";
 const NAME_OCC = "客室稼働率 (OCC)";
 const NAME_ADR = "客室平均単価 (ADR)";
@@ -202,14 +243,20 @@ const showChart = (bindto, columns) => {
           format: '%Y-%m-%d'
         }
       },
+      y: {
+        padding: 0
+      },
       y2: {
+        padding: 0,
         show: true,
       },
     },
     tooltip: {
       format: {
         value: (value) => d3.format(",")(value),
-      }
+      },
+      // nullを設定するとデータのカラム順に表示される
+      order: null
     },
     regions: [
       {
@@ -261,8 +308,40 @@ const showBarChart = (bindto, columns) => {
   });
 };
 
+const showBookingCurve = (bindto, columns) => {
+  const chart = c3.generate({
+    bindto: bindto,
+    data: {
+      x: 'x',
+      columns
+    },
+    axis: {
+      x: {
+        type: 'indexes',
+        tick: {
+          count: 46,
+          format: function (x) {
+            return x + "日前";
+          }
+        },
+        max: 90
+      },
+
+      y: {
+        padding: 0,
+        min: 0
+      }
+    },
+    tooltip: {
+      // nullを設定するとデータのカラム順に表示される
+      order: null
+    }
+  });
+};
+
 const chartData = await getChartFile();
 const barChartData = await getBarChartFile();
+const bookingCurveData = await getBookingCurveFile();
 
 const show = async (startDate, endDate) => {
   if (!startDate || !endDate) {
@@ -316,18 +395,28 @@ const loadBarChart = (startDate, endDate, category) => {
   showBarChart("#barChart", barColumns);
 };
 
+const loadBookingCurve = (startDate, endDate) => {
+  const startday = new Day(startDate);
+  const endday = new Day(endDate);
+  const bookingCurveColumns = makeBookingCurveColumns(bookingCurveData, startday, endday);
+  showBookingCurve("#bookingCurve", bookingCurveColumns);
+};
+
 fromDate.onchange = () => {
   show(fromDate.value, toDate.value);
   loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
+  loadBookingCurve(fromDate.value, toDate.value);
 };
 toDate.onchange = () => {
   show(fromDate.value, toDate.value);
   loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
+  loadBookingCurve(fromDate.value, toDate.value);
 };
 barChartCategory.onchange = () => loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
 
 show(fromDate.value, toDate.value);
 loadBarChart(fromDate.value, toDate.value, barChartCategory.value);
+loadBookingCurve(fromDate.value, toDate.value);
 </script>
 
 <div class=caption>
@@ -353,6 +442,9 @@ body {
   height: 50vh;
 }
 #barChart {
+  height: 50vh;
+}
+#bookingCurve {
   height: 50vh;
 }
 .caption {
